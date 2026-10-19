@@ -1,0 +1,15 @@
+# Python 3.9+ with Tk support (Linux: install python3-tk / python3-tkinter).
+# Install into the SAME interpreter you launch the GUI with, e.g.:
+#   <python> -m pip install --user -r requirements.txt
+#
+# Minimum versions below match a known-good setup. Loosen/pin as needed.
+# On headless nodes, swap opencv-python for opencv-python-headless.
+
+numpy>=1.23
+opencv-python>=4.7        # or: opencv-python-headless>=4.7
+h5py>=3.7
+scikit-image>=0.20
+pandas>=1.5
+scipy>=1.9
+matplotlib>=3.6
+tifffile>=2022.8.12
