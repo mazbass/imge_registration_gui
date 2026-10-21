@@ -7,10 +7,6 @@ Self-contained backend for xrf_registration_gui.py.
 All required preprocessing, PC1 fusion, SIFT, match-template, metrics and
 overlay functionality is implemented in this file.
 
-The logic is lifted directly from:
-    2018_Pourzal_sift_try.ipynb
-    2018_Pourzal_sift_try_with_PCA_sep_no_scale_affine_add_pc1.ipynb
-
 Nothing here imports Tk / Qt, so the module can be used head-less or tested
 from a plain Python shell.
 """
