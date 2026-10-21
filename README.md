@@ -12,7 +12,7 @@ Double-click `run_gui.bat`, or run with a Python that has the dependencies
 (the Anaconda base interpreter here already does):
 
 ```
-python registration_gui.py
+python xrf_registration_gui.py
 ```
 
 ### Linux / macOS
@@ -23,12 +23,12 @@ python registration_gui.py
 # 2) install the Python packages into the SAME interpreter you launch with:
 <python> -m pip install --user -r requirements.txt
 # 3) launch:
-<python> registration_gui.py          # or:  ./run_gui.sh
+<python> xrf_registration_gui.py      # or:  ./run_gui.sh
 ```
 
-`registration_gui.py` adds its own folder to `sys.path`, so it can be launched
-from anywhere and still finds the backend and helper modules. All paths in the
-code are relative/portable; nothing is hardcoded to a machine.
+`xrf_registration_gui.py` adds its own folder to `sys.path`, so it can be
+launched from anywhere and still finds the backend. All paths in the code are
+relative/portable; nothing is hardcoded to a machine.
 
 > Tip: install and launch with the **same** `python`. The most common error
 > ("No module named 'cv2'") means the interpreter you ran is not the one pip
@@ -57,9 +57,8 @@ package if missing. On headless nodes use `opencv-python-headless`.)
 
 | file | purpose |
 |------|---------|
-| `registration_gui.py` | Tkinter GUI (front end) |
-| `registration_core.py` | backend: loading, PC1 fusion, SIFT, match-template, metrics, overlay |
-| `image_module.py`, `hotspot_filter.py`, `register_multiscale.py`, `pca_xrf_channels.py`, `pca_xrf_channels_sc.py`, `xrf_channel_selection.py`, `refine_registration.py` | helper modules |
+| `xrf_registration_gui.py` | Tkinter GUI (front end) |
+| `xrf_registration_core.py` | self-contained backend: loading, PC1 fusion, SIFT, match-template, metrics, overlay |
 | `requirements.txt` | pip dependency list |
 | `run_gui.bat` / `run_gui.sh` | launchers (Windows / Linux-macOS) |
 
@@ -138,5 +137,3 @@ match-template progress).
 
 * The PCA-based metric needs both sources to be H5 (multi-channel). With a
   simple image on either side it is skipped.
-* "No module named 'cv2'" on a new machine = wrong interpreter; see the Run
-  section.

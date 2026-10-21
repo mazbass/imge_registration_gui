@@ -4,4 +4,4 @@
 # requirements.txt.
 cd "$(dirname "$0")"
 PYEXE="${PYTHON:-python3}"
-exec "$PYEXE" registration_gui.py "$@"
+exec "$PYEXE" xrf_registration_gui.py "$@"
