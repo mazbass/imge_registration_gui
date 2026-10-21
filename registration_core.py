@@ -221,19 +221,24 @@ def _pca_from_stack(stack, n_components=3, center=True, scale=False):
     return scores.T.reshape(k, H, W), model
 
 
-def select_pc1_channels(values, index, mode, N_total, top_n=3, manual_idx=None):
+def select_pc1_channels(values, index, mode, N_total, top_n=3, manual_threshold=0.15):
     """
     Decide which channels to keep for PC1 fusion.
 
+    `values` are SIGNED PC1 loadings (already sign-aligned so most are positive).
+    A negative loading means the channel contributes negatively to the structure.
+
     mode:
-      'top_n'      -> the top_n channels by |loading|  (values already sorted by |loading| desc)
+      'top_n'      -> the top_n channels by |loading| (values sorted by |loading| desc)
       'inv_sqrt_n' -> keep channels with |loading| >= 1/sqrt(N_total)
       'half_max'   -> keep channels with |loading| >= 0.5 * max(|loading|)
-      'manual'     -> keep channels whose original index is in manual_idx
+      'manual'     -> keep channels with SIGNED loading >= manual_threshold
+                      (the notebook PC1_threshold; negatives are dropped by a
+                      positive threshold)
     Returns a boolean mask aligned with `values`/`index`.
     """
-    absvals = np.abs(np.asarray(values, dtype=float))
-    idx = np.asarray(index)
+    vals = np.asarray(values, dtype=float)
+    absvals = np.abs(vals)
 
     if mode == "top_n":
         keep = np.zeros(len(absvals), dtype=bool)
@@ -246,8 +251,7 @@ def select_pc1_channels(values, index, mode, N_total, top_n=3, manual_idx=None):
         thr = 0.5 * float(absvals.max()) if absvals.size else 0.0
         return absvals >= thr
     if mode == "manual":
-        wanted = set(int(i) for i in (manual_idx or []))
-        return np.array([int(i) in wanted for i in idx], dtype=bool)
+        return vals >= float(manual_threshold)      # signed, keeps sign meaning
     raise ValueError(f"unknown pc1 selection mode: {mode!r}")
 
 
@@ -257,7 +261,7 @@ def build_pc1(
     pc1_pool_selection="all",
     selection_mode="inv_sqrt_n",
     top_n=3,
-    manual_idx=None,
+    manual_threshold=0.15,
     flip_x=False,
     flip_y=False,
     rot_k=0,
@@ -333,16 +337,9 @@ def build_pc1(
     if np.sum(values < 0) >= len(values) // 2:
         values = values * -1
 
-    # translate manual (original-channel) indices to pool-local indices
-    manual_local = None
-    if selection_mode == "manual" and manual_idx is not None:
-        # manual_idx are indices into the ORIGINAL dataset; map through ch_list
-        pool_pos = {orig: local for local, orig in enumerate(ch_list)}
-        manual_local = [pool_pos[m] for m in manual_idx if m in pool_pos]
-
     keep = select_pc1_channels(
         values, index, selection_mode, N_total=len(values),
-        top_n=top_n, manual_idx=manual_local,
+        top_n=top_n, manual_threshold=manual_threshold,
     )
     if not keep.any():
         keep[:1] = True  # always keep at least one channel
@@ -365,6 +362,7 @@ def build_pc1(
         "n_pool": len(values),
         "n_selected": int(keep.sum()),
         "selection_mode": selection_mode,
+        "manual_threshold": float(manual_threshold) if selection_mode == "manual" else None,
         "names_selected": names_selected,
         "loadings_selected": [float(v) for v in values_selected],
         "variance_ratio_pc1": float(df["pca_pc1_variance_ratio"].iloc[0]) if "pca_pc1_variance_ratio" in df else None,
@@ -414,7 +412,7 @@ class ImageSource:
     pc1_pool_selection: str = "all"
     pc1_selection_mode: str = "inv_sqrt_n"
     pc1_top_n: int = 3
-    pc1_manual_idx: Optional[Sequence[int]] = None
+    pc1_manual_threshold: float = 0.15   # for 'manual' mode: keep |loading| >= this
     # manual preprocessing
     flip_x: bool = False
     flip_y: bool = False
@@ -435,7 +433,7 @@ class ImageSource:
                 pc1_pool_selection=self.pc1_pool_selection,
                 selection_mode=self.pc1_selection_mode,
                 top_n=self.pc1_top_n,
-                manual_idx=self.pc1_manual_idx,
+                manual_threshold=self.pc1_manual_threshold,
                 flip_x=self.flip_x, flip_y=self.flip_y,
                 rot_k=self.rot_k, crop=self.crop,
             )

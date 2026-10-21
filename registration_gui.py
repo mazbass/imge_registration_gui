@@ -128,7 +128,7 @@ class SourcePanel(ttk.LabelFrame):
         self.var_pool = tk.StringVar(value="elem+scatter")
         self.var_mode = tk.StringVar(value=MODE_KEY_TO_LABEL["top_n"])
         self.var_topn = tk.StringVar(value="3")
-        self.var_manual = tk.StringVar(value="")
+        self.var_manual = tk.StringVar(value="0.15")   # manual loading threshold
 
         self.var_flipx = tk.BooleanVar(value=False)
         self.var_flipy = tk.BooleanVar(value=False)
@@ -166,10 +166,12 @@ class SourcePanel(ttk.LabelFrame):
                                     values=list(rc.XRF_KEYS), state="readonly")
         self.cmb_key.grid(row=0, column=1, sticky="w", padx=4)
         self.cmb_key.bind("<<ComboboxSelected>>", lambda e: self._refresh_channels())
+        self._bind_combobox_arrows(self.cmb_key, self._refresh_channels)
 
         ttk.Label(kf, text="Channel:").grid(row=0, column=2, sticky="w", padx=(10, 0))
         self.cmb_ch = ttk.Combobox(kf, textvariable=self.var_channel, width=22)
         self.cmb_ch.grid(row=0, column=3, sticky="w", padx=4)
+        self._bind_combobox_arrows(self.cmb_ch)   # live update via var_channel trace
         r += 1
 
         ttk.Checkbutton(self, text="Use PC1 fusion (H5 only)",
@@ -191,16 +193,18 @@ class SourcePanel(ttk.LabelFrame):
                                      state="readonly")
         self.cmb_mode.grid(row=1, column=1, columnspan=2, sticky="w", padx=4)
         self.cmb_mode.bind("<<ComboboxSelected>>", lambda e: self._toggle_mode())
+        self._bind_combobox_arrows(self.cmb_mode, self._toggle_mode)
 
         self.lbl_topn = ttk.Label(pf, text="N =")
         self.lbl_topn.grid(row=2, column=0, sticky="e")
         self.ent_topn = ttk.Entry(pf, textvariable=self.var_topn, width=6)
         self.ent_topn.grid(row=2, column=1, sticky="w", padx=4)
 
-        self.lbl_manual = ttk.Label(pf, text="Manual idx:")
+        self.lbl_manual = ttk.Label(pf, text="Manual threshold:")
         self.lbl_manual.grid(row=3, column=0, sticky="e")
-        self.ent_manual = ttk.Entry(pf, textvariable=self.var_manual, width=24)
-        self.ent_manual.grid(row=3, column=1, columnspan=2, sticky="w", padx=4)
+        self.ent_manual = ttk.Entry(pf, textvariable=self.var_manual, width=8)
+        self.ent_manual.grid(row=3, column=1, sticky="w", padx=4)
+        ttk.Label(pf, text="(keep loading >= thr; signed)").grid(row=3, column=2, sticky="w")
         r += 1
 
         # orientation
@@ -266,6 +270,36 @@ class SourcePanel(ttk.LabelFrame):
         self._toggle_mode()
 
     # ---------------- callbacks ----------------
+    def _bind_combobox_arrows(self, combo, on_change=None):
+        """
+        Enable Up/Down (and PageUp/PageDown) arrow keys to step through a
+        combobox's values, even when it is readonly, firing on_change after.
+        """
+        def step(delta):
+            values = list(combo.cget("values"))
+            if not values:
+                return "break"
+            cur = combo.get()
+            try:
+                i = values.index(cur)
+            except ValueError:
+                i = 0
+            i = max(0, min(len(values) - 1, i + delta))
+            combo.set(values[i])
+            combo.event_generate("<<ComboboxSelected>>")
+            if on_change is not None:
+                on_change()
+            return "break"
+
+        combo.bind("<Up>", lambda e: step(-1))
+        combo.bind("<Down>", lambda e: step(+1))
+        combo.bind("<Prior>", lambda e: step(-1))   # PageUp
+        combo.bind("<Next>", lambda e: step(+1))    # PageDown
+        # make it focusable by click so the keys apply
+        combo.bind("<Button-1>", lambda e: combo.focus_set(), add="+")
+        # mouse wheel over the combobox also steps
+        combo.bind("<MouseWheel>", lambda e: step(-1 if e.delta > 0 else +1))
+
     def _browse(self):
         path = filedialog.askopenfilename(
             title="Select image / H5 file",
@@ -403,9 +437,10 @@ class SourcePanel(ttk.LabelFrame):
         if not path:
             raise ValueError(f"{self['text']}: no file selected")
         kind = "h5" if os.path.splitext(path)[1].lower() in rc.H5_EXTS else "image"
-        manual_idx = None
-        if self.var_manual.get().strip():
-            manual_idx = [int(x) for x in self.var_manual.get().replace(" ", "").split(",") if x != ""]
+        try:
+            manual_threshold = float(self.var_manual.get())
+        except (ValueError, tk.TclError):
+            manual_threshold = 0.15
         src = rc.ImageSource(
             path=path,
             kind=kind,
@@ -415,7 +450,7 @@ class SourcePanel(ttk.LabelFrame):
             pc1_pool_selection=self.var_pool.get().strip() or "all",
             pc1_selection_mode=MODE_LABEL_TO_KEY.get(self.var_mode.get(), "inv_sqrt_n"),
             pc1_top_n=int(self.var_topn.get() or 3),
-            pc1_manual_idx=manual_idx,
+            pc1_manual_threshold=manual_threshold,
             flip_x=bool(self.var_flipx.get()),
             flip_y=bool(self.var_flipy.get()),
             rot_k=int(self.var_rotk.get()),
